@@ -3,6 +3,7 @@ import numpy as np
 import itertools
 import sys
 import matplotlib.pyplot as plt
+import argparse
 
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn import linear_model, svm
@@ -14,7 +15,7 @@ from nltk.corpus import stopwords
 
 # Usage:
 # python classify_reviews.py pos/file/path neg/file/path 
-#							vectorize_method classify_method stopwords
+#							vectorize_method classify_method 
 # Possible vectorize methods are:
 #	unigram - for unigrams
 #	bigram - for bigrams
@@ -24,14 +25,17 @@ from nltk.corpus import stopwords
 #	svm - for support vector machine (with a linear kernel)
 #	nb - for Naive Bayes
 #	dummy - allocates labels with equal probability
-# To use stopwords, supply 'stopwords' as the final argument.
+# To use stopwords, supply '-sw'.
+# To plot the resulting confusion matrix, supply '-cm'.
 
-pos_input = sys.argv[1]
-neg_input = sys.argv[2]
-
-vectorize_method = sys.argv[3]
-classify_method = sys.argv[4]
-stop_words = sys.argv[5]
+parser = argparse.ArgumentParser()
+parser.add_argument("pos_input")
+parser.add_argument("neg_input")
+parser.add_argument("vectorize_method")
+parser.add_argument("classify_method")
+parser.add_argument("-sw", "--stopwords", action="store_true")
+parser.add_argument("-cm", "--confusionmatrix", action="store_true")
+args = parser.parse_args()
 
 # NOTE: This function, and only this function, borrowed from scikit-learn documentation,
 # for purposes of having a prettier figure for the confusion matrix.
@@ -68,10 +72,10 @@ def plot_confusion_matrix(cm, classes,
 
 if __name__ == '__main__':
 	# Read in files
-	with open(pos_input, 'r') as pos_file:
+	with open(args.pos_input, 'r') as pos_file:
 		pos_data = pos_file.readlines()
 
-	with open(neg_input, 'r') as neg_file:
+	with open(args.neg_input, 'r') as neg_file:
 		neg_data = neg_file.readlines()
 
 	# Split into training and testing (90% training, 10% testing)
@@ -96,30 +100,30 @@ if __name__ == '__main__':
 		test_classes.append("neg")
 
 	# Set up stop word parameters
-	if stop_words == "stopwords":
+	if args.stopwords:
 		stop_words = set(stopwords.words("english"))	# Get stopwords from NLTK
 	else:
 		stop_words = None
 
 	# Vectorize the data
-	if vectorize_method == "unigram":
+	if args.vectorize_method == "unigram":
 		vectorizer = CountVectorizer(ngram_range=(1,1), decode_error='replace', min_df=0.0001, stop_words=stop_words)
-	elif vectorize_method == "bigram":
+	elif args.vectorize_method == "bigram":
 		vectorizer = CountVectorizer(ngram_range=(2,2), decode_error='replace', min_df=0.0001, stop_words=stop_words)
-	elif vectorize_method == "both":
+	elif args.vectorize_method == "both":
 		vectorizer = CountVectorizer(ngram_range=(1,2), decode_error='replace', min_df=0.0001, stop_words=stop_words)
 
 	train_vectors = vectorizer.fit_transform(train_data)
 	test_vectors = vectorizer.transform(test_data)
 
 	# Classify the data
-	if classify_method == "logreg":
+	if args.classify_method == "logreg":
 		classifier = linear_model.LogisticRegression()
-	elif classify_method == "svm":
+	elif args.classify_method == "svm":
 		classifier = svm.LinearSVC()
-	elif classify_method == "nb":
+	elif args.classify_method == "nb":
 		classifier = MultinomialNB(alpha=0.7)
-	elif classify_method == "dummy":
+	elif args.classify_method == "dummy":
 		classifier = DummyClassifier(strategy="uniform")
 
 	classifier.fit(train_vectors, train_classes)
@@ -136,8 +140,9 @@ if __name__ == '__main__':
 	print "PERCENTAGE CORRECTLY CLASSIFIED: " + str(percentage_hits)
 
 	# Print confusion matrix (optional section).
-	cnf_matrix = confusion_matrix(test_classes, prediction)
-	print cnf_matrix
-	plot_confusion_matrix(cnf_matrix, classes=["pos", "neg"], normalize=False, title="Normalized confusion matrix")
-	plt.figure()
-	plt.show()
+	if args.confusionmatrix:
+		cnf_matrix = confusion_matrix(test_classes, prediction)
+		print cnf_matrix
+		plot_confusion_matrix(cnf_matrix, classes=["pos", "neg"], normalize=False, title="Normalized confusion matrix")
+		plt.figure()
+		plt.show()
